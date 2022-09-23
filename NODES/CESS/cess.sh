@@ -1,6 +1,7 @@
 #!/bin/bash
 ### -------------------------------------------------------------------------------------------------
 # COPYRIGHT: EQUULEUS [https://github.com/equuleus]
+# wget -qO "./cess.sh" "https://raw.githubusercontent.com/equuleus/CRYPTUS/main/NODES/CESS/cess.sh" && chmod +x "./cess.sh" && sudo /bin/bash "./cess.sh" && rm -f "./cess.sh"
 ### -------------------------------------------------------------------------------------------------
 ### -------------------------------------------------------------------------------------------------
 # https://github.com/CESSProject/cess

@@ -1,0 +1,860 @@
+### -------------------------------------------------------------------------------------------------
+# COPYRIGHT: EQUULEUS [https://github.com/equuleus]
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [SERVERS - Get information]"
+  hosts: "SERVERS"
+  become: true
+  become_method: "sudo"
+#  become_method: enable
+  become_user: "root"
+#  become_user: user
+  gather_facts: false
+  environment: 
+#    HOME: /home/root
+#    HOME: /root
+  vars:
+   SCRIPT_SERVERS: "SERVERS"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+   LOCAL_LOG_FILEPATH: "/home/user"
+   LOCAL_LOG_FILENAME: "ping.log"
+  tasks:
+### Check log file is exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+      register: result_local_file_log
+      when: (SCRIPT_ENABLE)
+### Remove log file from local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove file \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" from local server"
+      delegate_to: localhost
+      file:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_local_file_log.stat.exists)
+### Ping from local server to remote servers:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Ping from local server to remote servers"
+#      command: "ping -c 1 -w 2 {{ ansible_ssh_host }}"
+      command: "ping -c 1 -w 2 {{ ansible_host }}"
+      delegate_to: localhost
+      register: result_command
+      ignore_errors: true
+      when: (SCRIPT_ENABLE)
+    - debug: msg="{{ inventory_hostname }} - {{ result_command.stdout }}"
+      when: (SCRIPT_ENABLE) and (result_command.stdout != "")
+    - name: "[ {{ SCRIPT_SERVERS }} ] Save results to local server \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" file"
+      delegate_to: localhost
+      lineinfile:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+        line: "{{ inventory_hostname }}:\n{{ result_command.stdout }}\n\n"
+#        line: "{{ inventory_hostname }}: {{ result_command.stdout_lines }}\n\n"
+        create: yes
+        mode: "0644"
+      when: (SCRIPT_ENABLE) and (result_command.stdout != "")
+### Ping from remote servers to "8.8.8.8":
+    - name: "[ {{ SCRIPT_SERVERS }} ] Ping from remote servers to \"8.8.8.8\""
+      shell: "ping -c 1 -w 2 8.8.8.8"
+      register: result_shell
+      ignore_errors: true
+      when: (SCRIPT_ENABLE)
+    - debug: msg="{{ result_shell.stdout }}"
+      when: (SCRIPT_ENABLE) and (result_shell.stdout != "")
+    - name: "[ {{ SCRIPT_SERVERS }} ] Save results to local server \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" file"
+      delegate_to: localhost
+      lineinfile:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+        line: "{{ inventory_hostname }}:\n{{ result_shell.stdout }}\n\n"
+#        line: "{{ inventory_hostname }}: {{ result_shell.stdout_lines }}\n\n"
+        create: yes
+        mode: "0644"
+      when: (SCRIPT_ENABLE) and (result_shell.stdout != "")
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - APTOS - Install / Update]"
+  hosts: "NODES_APTOS"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "APTOS"
+   SCRIPT_FILEPATH: "/home/user/NODES/APTOS"
+   SCRIPT_FILENAME: "aptos-install.sh"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - APTOS - Get archive with keys]"
+  hosts: "NODES_APTOS"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "APTOS"
+   LOCAL_DIRECTORY_PATH: "/home/user/.aptos"
+   REMOTE_DIRECTORY_PATH: "~/.aptos"
+   ARCHIVE_FILEPATH: "/root"
+   ARCHIVE_FILENAME: "aptos.tar.gz"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check if directory with wallet keys is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the directory \"{{ REMOTE_DIRECTORY_PATH }}\" is exists on remote server"
+      stat:
+        path: "{{ REMOTE_DIRECTORY_PATH }}"
+      register: result_remote_directory
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Archive contents of directory:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Archive directory \"{{ REMOTE_DIRECTORY_PATH }}\" to file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" on remote server"
+      archive:
+        path: "{{ REMOTE_DIRECTORY_PATH }}"
+        dest: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        format: "gz"
+      when: (SCRIPT_ENABLE) and (result_remote_directory.stat.exists)
+### Check if archive with packed directory exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" is exists on remote server"
+      stat:
+        path: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+      register: result_remote_file_archive
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Check if directory exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the directory \"{{ LOCAL_DIRECTORY_PATH }}\" is exists on local server"
+      stat:
+        path: "{{ LOCAL_DIRECTORY_PATH }}"
+      register: result_local_directory
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Creates a directory if it doesn't exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Create the directory \"{{ LOCAL_DIRECTORY_PATH }}\" on local server"
+      file:
+        path: "{{ LOCAL_DIRECTORY_PATH }}"
+        state: directory
+      when: (SCRIPT_ENABLE) and (not result_local_directory.stat.exists)
+### Copy archive from remote to local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy archive file from remote to local server"
+      fetch:
+        src: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        dest: "{{ LOCAL_DIRECTORY_PATH }}"
+      when: (SCRIPT_ENABLE) and (result_remote_file_archive.stat.exists)
+### Remove archive from remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove archive file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" from remote server"
+      file:
+        path: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_remote_file_archive.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - APTOS - Uninstall]"
+  hosts: "NODES_APTOS"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "APTOS"
+   SCRIPT_FILEPATH: "/home/user/NODES/APTOS"
+   SCRIPT_FILENAME: "aptos-uninstall.sh"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - SUI - Install / Update]"
+  hosts: "NODES_SUI"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "SUI"
+   SCRIPT_FILEPATH: "/home/user/NODES/SUI"
+   SCRIPT_FILENAME: "sui-install.sh"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - SUI - Get information]"
+  hosts: "NODES_SUI"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "SUI"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Get server IP address:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Get server IP address on remote server"
+      command: "wget -qO- eth0.me"
+      register: result_remote_ip
+      when: (SCRIPT_ENABLE)
+      args:
+        warn: false
+      ignore_errors: true
+### Get SUI node version (from Docker container):
+    - name: "[ {{ SCRIPT_SERVERS }} ] Get node version from Docker container on remote server"
+      command: "docker container exec sui_node ./sui -V"
+      register: result_remote_command_version
+      when: (SCRIPT_ENABLE)
+      ignore_errors: true
+### Get SUI keys (from Docker container):
+    - name: "[ {{ SCRIPT_SERVERS }} ] Get keys list from Docker container on remote server"
+      command: "docker container exec sui_node ./sui keytool list"
+      register: result_remote_command_keys
+      when: (SCRIPT_ENABLE)
+      ignore_errors: true
+    - debug: msg="{{ result_remote_ip.stdout }} - {{ result_remote_command_version.stdout }}"
+      when: (SCRIPT_ENABLE) and (result_remote_command_version.stdout != "")
+    - debug: msg="{{ result_remote_ip.stdout }} - {{ result_remote_command_keys.stdout }}"
+      when: (SCRIPT_ENABLE) and (result_remote_command_keys.stdout != "")
+#    - debug: msg="{{ result.stderr }}"
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - SUI - Get archive with keys]"
+  hosts: "NODES_SUI"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "SUI"
+   LOCAL_DIRECTORY_PATH: "/home/user/.sui"
+   REMOTE_DIRECTORY_PATH: "~/.sui/sui_config"
+   ARCHIVE_FILEPATH: "/root"
+   ARCHIVE_FILENAME: "sui_config.tar.gz"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check if file with wallet keys is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the file \"{{ REMOTE_DIRECTORY_PATH }}/sui.keystore\" is exists on remote server"
+      stat:
+        path: "{{ REMOTE_DIRECTORY_PATH }}/sui.keystore"
+      register: result_remote_file_keystore
+      when: (SCRIPT_ENABLE)
+      ignore_errors: true
+### Check if file with wallet keys is not exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] File \"{{ REMOTE_DIRECTORY_PATH }}/sui.keystore\" not exist on remote server"
+      when: (SCRIPT_ENABLE) and (not result_remote_file_keystore.stat.exists)
+      ignore_errors: true
+      debug:
+        msg: "File '{{ REMOTE_DIRECTORY_PATH }}/sui.keystore' not found, please run 'sui client' from sudo user and answer 'y' and then '[ENTER]'"
+#    - name: [ {{ SCRIPT_SERVERS }} ] Copy and execute the script "~/expect.sh" from local server
+#      script: ~/expect.sh
+#      when: not result_remote_file_keystore.stat.exists
+#      when: (SCRIPT_ENABLE)
+#      ignore_errors: true
+### Check if directory with wallet keys is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the directory \"{{ REMOTE_DIRECTORY_PATH }}\" is exists on remote server"
+      stat:
+        path: "{{ REMOTE_DIRECTORY_PATH }}"
+      register: result_remote_directory
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Archive contents of directory:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Archive directory \"{{ REMOTE_DIRECTORY_PATH }}\" to file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" on remote server"
+      archive:
+        path: "{{ REMOTE_DIRECTORY_PATH }}"
+        dest: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        format: "gz"
+      when: (SCRIPT_ENABLE) and (result_remote_directory.stat.exists)
+### Check if archive with packed directory exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" is exists on remote server"
+      stat:
+        path: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+      register: result_remote_file_archive
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Check if directory exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the directory \"{{ LOCAL_DIRECTORY_PATH }}\" is exists on local server"
+      stat:
+        path: "{{ LOCAL_DIRECTORY_PATH }}"
+      register: result_local_directory
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Creates a directory if it doesn't exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Create the directory \"{{ LOCAL_DIRECTORY_PATH }}\" on local server"
+      file:
+        path: "{{ LOCAL_DIRECTORY_PATH }}"
+        state: directory
+      when: (SCRIPT_ENABLE) and (not result_local_directory.stat.exists)
+### Copy archive from remote to local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy archive file from remote to local server"
+      fetch:
+        src: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        dest: "{{ LOCAL_DIRECTORY_PATH }}"
+      when: (SCRIPT_ENABLE) and (result_remote_file_archive.stat.exists)
+### Remove archive from remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove archive file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" from remote server"
+      file:
+        path: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_remote_file_archive.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - SUI - Uninstall]"
+  hosts: "NODES_SUI"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "SUI"
+   SCRIPT_FILEPATH: "/home/user/NODES/SUI"
+   SCRIPT_FILENAME: "sui-uninstall.sh"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - MASSA - Install / Update]"
+  hosts: "NODES_MASSA"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "MASSA"
+   SCRIPT_FILEPATH: "/home/user/NODES/MASSA"
+   SCRIPT_FILENAME: "massa-install.sh"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - MASSA - Wallet]"
+  hosts: "NODES_MASSA"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  environment: 
+  vars:
+   SCRIPT_SERVERS: "MASSA"
+   SCRIPT_FILEPATH: "/home/user/NODES/MASSA"
+   SCRIPT_FILENAME: "massa-wallet.sh"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - MASSA - Get archive with keys]"
+  hosts: "NODES_MASSA"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "MASSA"
+   LOCAL_DIRECTORY_PATH: "/home/user/.massa"
+   REMOTE_DIRECTORY_PATH: "~/massa_backup"
+   ARCHIVE_FILEPATH: "/root"
+   ARCHIVE_FILENAME: "massa_backup.tar.gz"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check if directory with wallet keys is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the directory \"{{ REMOTE_DIRECTORY_PATH }}\" is exists on remote server"
+      stat:
+        path: "{{ REMOTE_DIRECTORY_PATH }}"
+      register: result_remote_directory
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Archive contents of directory:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Archive directory \"{{ REMOTE_DIRECTORY_PATH }}\" to file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" on remote server"
+      archive:
+        path: "{{ REMOTE_DIRECTORY_PATH }}"
+        dest: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        format: "gz"
+      when: (SCRIPT_ENABLE) and (result_remote_directory.stat.exists)
+### Check if archive with packed directory exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" is exists on remote server"
+      stat:
+        path: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+      register: result_remote_file_archive
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Check if directory exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the directory \"{{ LOCAL_DIRECTORY_PATH }}\" is exists on local server"
+      stat:
+        path: "{{ LOCAL_DIRECTORY_PATH }}"
+      register: result_local_directory
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Creates a directory if it doesn't exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Create the directory \"{{ LOCAL_DIRECTORY_PATH }}\" on local server"
+      file:
+        path: "{{ LOCAL_DIRECTORY_PATH }}"
+        state: directory
+      when: (SCRIPT_ENABLE) and (not result_local_directory.stat.exists)
+### Copy archive from remote to local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy archive file from remote to local server"
+      fetch:
+        src: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        dest: "{{ LOCAL_DIRECTORY_PATH }}"
+      when: (SCRIPT_ENABLE) and (result_remote_file_archive.stat.exists)
+### Remove archive from remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove archive file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" from remote server"
+      file:
+        path: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_remote_file_archive.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - MASSA - Activate and get archive with information ]"
+  hosts: "NODES_MASSA"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "MASSA"
+   LOCAL_DATABASE_FILEPATH: "/home/user/NODES/MASSA"
+   LOCAL_DATABASE_FILENAME: "massa.txt"
+   REMOTE_DATABASE_FILEPATH: "/root"
+   REMOTE_DATABASE_FILENAME: "massa.txt"
+   SCRIPT_FILEPATH: "/home/user/NODES/MASSA"
+   SCRIPT_FILENAME: "massa-activate.sh"
+   LOCAL_DIRECTORY_PATH: "/home/user/.massa"
+   REMOTE_DIRECTORY_PATH: "~/massa_backup"
+   REMOTE_FILE_NAME: "info.txt"
+   ARCHIVE_FILEPATH: "/root"
+   ARCHIVE_FILENAME: "info.zip"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check database file is exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if database file \"{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}"
+      register: result_local_file_database
+      when: (SCRIPT_ENABLE)
+### Transfer database file from local to remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Transfer the database file \"{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}\" from local to remote server at \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\""
+      copy:
+        src: "{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}"
+        dest: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+        mode: "0644"
+      when: (SCRIPT_ENABLE) and (result_local_file_database.stat.exists)
+### Check database file is exists on remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if database file \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\" exists on remote server"
+      stat:
+        path: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+      register: result_remote_file_database
+      when: (SCRIPT_ENABLE) and (result_local_file_database.stat.exists)
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE) and (result_remote_file_database.stat.exists)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_script
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+    - debug: msg="{{ result_script.stdout_lines }}"
+      when: (SCRIPT_ENABLE) and (result_script.stdout_lines != "")
+### Check if file with information is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the file \"{{ REMOTE_DIRECTORY_PATH }}/{{ REMOTE_FILE_NAME }}\" is exists on remote server"
+      stat:
+        path: "{{ REMOTE_DIRECTORY_PATH }}/{{ REMOTE_FILE_NAME }}"
+      register: result_remote_file_info
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Archive contents of directory:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Archive file \"{{ REMOTE_DIRECTORY_PATH }}/{{ REMOTE_FILE_NAME }}\" to file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" on remote server"
+      archive:
+        path: "{{ REMOTE_DIRECTORY_PATH }}/{{ REMOTE_FILE_NAME }}"
+        dest: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        format: "zip"
+      when: (SCRIPT_ENABLE) and (result_remote_file_info.stat.exists)
+### Check if archive with packed file exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" is exists on remote server"
+      stat:
+        path: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+      register: result_remote_file_archive
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Check if directory exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check that the directory \"{{ LOCAL_DIRECTORY_PATH }}\" is exists on local server"
+      stat:
+        path: "{{ LOCAL_DIRECTORY_PATH }}"
+      register: result_local_directory
+#      no_log: true
+      when: (SCRIPT_ENABLE)
+### Creates a directory if it doesn't exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Create the directory \"{{ LOCAL_DIRECTORY_PATH }}\" on local server"
+      file:
+        path: "{{ LOCAL_DIRECTORY_PATH }}"
+        state: directory
+      when: (SCRIPT_ENABLE) and (not result_local_directory.stat.exists)
+### Copy archive from remote to local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy archive file from remote to local server"
+      fetch:
+        src: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        dest: "{{ LOCAL_DIRECTORY_PATH }}"
+      when: (SCRIPT_ENABLE) and (result_remote_file_archive.stat.exists)
+### Remove archive from remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove archive file \"{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}\" from remote server"
+      file:
+        path: "{{ ARCHIVE_FILEPATH }}/{{ ARCHIVE_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_remote_file_archive.stat.exists)
+### Remove file with information from remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove file \"{{ REMOTE_DIRECTORY_PATH }}/{{ REMOTE_FILE_NAME }}\" from remote server"
+      file:
+        path: "{{ REMOTE_DIRECTORY_PATH }}/{{ REMOTE_FILE_NAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_remote_file_info.stat.exists)
+### Remove database file from remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove file \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\" from remote server"
+      file:
+        path: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_remote_file_database.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - MASSA - Check wallet information ]"
+  hosts: "NODES_MASSA"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "MASSA"
+   SCRIPT_FILEPATH: "/home/user/NODES/MASSA"
+   SCRIPT_FILENAME: "massa-check.sh"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_script
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+#      changed_when: false
+#      check_mode: false
+      ignore_errors: true
+#    - debug: msg="{{ inventory_hostname }}\n{{ result_shell.stdout.split('\n') }}"
+    - debug: msg="{{ result_script.stdout_lines }}"
+      when: (SCRIPT_ENABLE) and (result_script.stdout_lines != "")
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - MASSA - Update / Statistics ]"
+  hosts: "NODES_MASSA"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "MASSA"
+   LOCAL_DATABASE_FILEPATH: "/home/user/NODES/MASSA"
+   LOCAL_DATABASE_FILENAME: "massa.txt"
+   REMOTE_DATABASE_FILEPATH: "/root"
+   REMOTE_DATABASE_FILENAME: "massa.txt"
+   SCRIPT_FILEPATH: "/home/user/NODES/MASSA"
+   SCRIPT_FILENAME: "massa.sh"
+   SCRIPT_ARGUMENTS: "--update --nocolor"
+#   SCRIPT_ARGUMENTS: "--statistics --nocolor"
+   LOCAL_LOG_FILEPATH: "/home/user"
+   LOCAL_LOG_FILENAME: "massa.log"
+#   SCRIPT_ENABLE: FALSE
+   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check database file is exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if database file \"{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}"
+      register: result_local_file_database
+      when: (SCRIPT_ENABLE)
+### Transfer database file from local to remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Transfer the database file \"{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}\" from local to remote server at \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\""
+      copy:
+        src: "{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}"
+        dest: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+        mode: "0644"
+      when: (SCRIPT_ENABLE) and (result_local_file_database.stat.exists)
+### Check database file is exists on remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if database file \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\" exists on remote server"
+      stat:
+        path: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+      register: result_remote_file_database
+      when: (SCRIPT_ENABLE) and (result_local_file_database.stat.exists)
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE) and (result_remote_file_database.stat.exists)
+### Check log file is exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+      register: result_local_file_log
+      when: (SCRIPT_ENABLE)
+### Remove log file from local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove file \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" from local server"
+      delegate_to: localhost
+      file:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_local_file_log.stat.exists)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }} {{ SCRIPT_ARGUMENTS }}"
+      register: result_script
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+#      changed_when: false
+#      check_mode: false
+      ignore_errors: true
+#    - debug: msg="{{ inventory_hostname }}\n{{ result_shell.stdout.split('\n') }}"
+    - debug: msg="{{ result_script.stdout_lines }}"
+      when: (SCRIPT_ENABLE) and (result_script.stdout_lines != "")
+    - name: "[ {{ SCRIPT_SERVERS }} ] Save results to local server \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" file"
+      delegate_to: localhost
+      lineinfile:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+        line: "{{ inventory_hostname }}:\n{{ result_script.stdout }}"
+#        line: "{{ inventory_hostname }}: {{ result_script.stdout_lines }}"
+        create: yes
+        mode: "0644"
+      when: (SCRIPT_ENABLE) and (result_script.stdout != "")
+### Remove database file from remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove file \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\" from remote server"
+      file:
+        path: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_remote_file_database.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - MINIMA - Install / Update]"
+  hosts: "NODES_MINIMA"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "MINIMA"
+   LOCAL_DATABASE_FILEPATH: "/home/user/NODES/MINIMA"
+   LOCAL_DATABASE_FILENAME: "minima.txt"
+   REMOTE_DATABASE_FILEPATH: "/root"
+   REMOTE_DATABASE_FILENAME: "minima.txt"
+   SCRIPT_FILEPATH: "/home/user/NODES/MINIMA"
+   SCRIPT_FILENAME: "minima.sh"
+   SCRIPT_ARGUMENTS: "--install --nocolor"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check database file is exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if database file \"{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}"
+      register: result_local_file_database
+      when: (SCRIPT_ENABLE)
+### Transfer database file from local to remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Transfer the database file \"{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}\" from local to remote server at \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\""
+      copy:
+        src: "{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}"
+        dest: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+        mode: "0644"
+      when: (SCRIPT_ENABLE) and (result_local_file_database.stat.exists)
+### Check database file is exists on remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if database file \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\" exists on remote server"
+      stat:
+        path: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+      register: result_remote_file_database
+      when: (SCRIPT_ENABLE) and (result_local_file_database.stat.exists)
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE) and (result_remote_file_database.stat.exists)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }} {{ SCRIPT_ARGUMENTS }}"
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+### Remove database file from remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove file \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\" from remote server"
+      file:
+        path: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_remote_file_database.stat.exists)
+### -------------------------------------------------------------------------------------------------
+### -------------------------------------------------------------------------------------------------
+- name: "Ansible Playbook [NODES - MINIMA - Statistics / Uninstall ]"
+  hosts: "NODES_MINIMA"
+  become: true
+  become_method: "sudo"
+  become_user: "root"
+  gather_facts: false
+  vars:
+   SCRIPT_SERVERS: "MINIMA"
+   LOCAL_DATABASE_FILEPATH: "/home/user/NODES/MINIMA"
+   LOCAL_DATABASE_FILENAME: "minima.txt"
+   REMOTE_DATABASE_FILEPATH: "/root"
+   REMOTE_DATABASE_FILENAME: "minima.txt"
+   SCRIPT_FILEPATH: "/home/user/NODES/MINIMA"
+   SCRIPT_FILENAME: "minima.sh"
+   SCRIPT_ARGUMENTS: "--statistics --nocolor"
+#   SCRIPT_ARGUMENTS: "--uninstall --nocolor"
+   LOCAL_LOG_FILEPATH: "/home/user"
+   LOCAL_LOG_FILENAME: "minima.log"
+   SCRIPT_ENABLE: FALSE
+#   SCRIPT_ENABLE: TRUE
+  tasks:
+### Check database file is exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if database file \"{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}"
+      register: result_local_file_database
+      when: (SCRIPT_ENABLE)
+### Transfer database file from local to remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Transfer the database file \"{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}\" from local to remote server at \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\""
+      copy:
+        src: "{{ LOCAL_DATABASE_FILEPATH }}/{{ LOCAL_DATABASE_FILENAME }}"
+        dest: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+        mode: "0644"
+      when: (SCRIPT_ENABLE) and (result_local_file_database.stat.exists)
+### Check database file is exists on remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if database file \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\" exists on remote server"
+      stat:
+        path: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+      register: result_remote_file_database
+      when: (SCRIPT_ENABLE) and (result_local_file_database.stat.exists)
+### Check script file is exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}"
+      register: result_local_file_script
+      when: (SCRIPT_ENABLE) and (result_remote_file_database.stat.exists)
+### Check log file is exists on local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Check if file script \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" exists on local server"
+      delegate_to: localhost
+      stat:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+      register: result_local_file_log
+      when: (SCRIPT_ENABLE)
+### Remove log file from local server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove file \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" from local server"
+      delegate_to: localhost
+      file:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_local_file_log.stat.exists)
+### Execute script file if it exists:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Copy and execute the script \"{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }}\" from local server"
+      script: "{{ SCRIPT_FILEPATH }}/{{ SCRIPT_FILENAME }} {{ SCRIPT_ARGUMENTS }}"
+      register: result_script
+      when: (SCRIPT_ENABLE) and (result_local_file_script.stat.exists)
+#      changed_when: false
+#      check_mode: false
+      ignore_errors: true
+#    - debug: msg="{{ inventory_hostname }}\n{{ result_shell.stdout.split('\n') }}"
+    - debug: msg="{{ result_script.stdout_lines }}"
+      when: (SCRIPT_ENABLE) and (result_script.stdout_lines != "")
+    - name: "[ {{ SCRIPT_SERVERS }} ] Save results to local server \"{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}\" file"
+      delegate_to: localhost
+      lineinfile:
+        path: "{{ LOCAL_LOG_FILEPATH }}/{{ LOCAL_LOG_FILENAME }}"
+        line: "{{ inventory_hostname }}:\n{{ result_script.stdout }}"
+#        line: "{{ inventory_hostname }}: {{ result_script.stdout_lines }}"
+        create: yes
+        mode: "0644"
+      when: (SCRIPT_ENABLE) and (result_script.stdout != "")
+### Remove database file from remote server:
+    - name: "[ {{ SCRIPT_SERVERS }} ] Remove file \"{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}\" from remote server"
+      file:
+        path: "{{ REMOTE_DATABASE_FILEPATH }}/{{ REMOTE_DATABASE_FILENAME }}"
+        state: absent
+      when: (SCRIPT_ENABLE) and (result_remote_file_database.stat.exists)
+### -------------------------------------------------------------------------------------------------
