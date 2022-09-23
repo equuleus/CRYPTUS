@@ -4,9 +4,15 @@
 ### -------------------------------------------------------------------------------------------------
 ### -------------------------------------------------------------------------------------------------
 ### Path to SSH RSA Private and Public keys:
-declare FILEPATH="$PWD"
-declare SCRIPT_FILENAME="servers.sh"
-declare SCRIPT_FILEPATH="../SERVERS"
+### Set home directory:
+if [ "$(whoami)" == "root" ]; then
+	declare HOME_PATH="/root/CRYPTUS"
+else
+	declare HOME_PATH="/home/$(id -un)/CRYPTUS"
+fi
+declare FILE_PATH="$PWD"
+declare SCRIPT_FILE_NAME="servers.sh"
+declare SCRIPT_FILE_PATH="${HOME_PATH}/SERVERS"
 ### -------------------------------------------------------------------------------------------------
 ### -------------------------------------------------------------------------------------------------
 # Set variables:
@@ -39,14 +45,15 @@ unset EXPECT_QUESTIONS
 ### -------------------------------------------------------------------------------------------------
 /usr/bin/expect -c '
 	set timeout -1;
-	spawn bash -c "cd '"${SCRIPT_FILEPATH}"' && ./'"${SCRIPT_FILENAME}"' && cd '"${FILEPATH}"'";
+	spawn bash -c "cd '"${SCRIPT_FILE_PATH}"' && ./'"${SCRIPT_FILE_NAME}"' && cd '"${FILE_PATH}"'";
 	'"${EXPECT_COMMAND}"';
 	interact;
 '
 unset EXPECT_COMMAND
 ### -------------------------------------------------------------------------------------------------
 ### -------------------------------------------------------------------------------------------------
-unset SCRIPT_FILEPATH
-unset SCRIPT_FILENAME
-unset FILEPATH
+unset SCRIPT_FILE_PATH
+unset SCRIPT_FILE_NAME
+unset FILE_PATH
+unset HOME_PATH
 ### -------------------------------------------------------------------------------------------------
